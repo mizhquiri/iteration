@@ -1,0 +1,393 @@
+---
+title: "Iteration and list columns"
+output: github_document
+---
+
+
+---
+
+```{r, include = FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(rvest)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+
+## Lists
+
+```{r}
+vec_numeric = 5:8
+vec_logical = c(TRUE, FALSE, TRUE, TRUE)
+```
+
+Lets look at a list
+
+```{r}
+l = list(
+  vec_numeric = 5:8,
+  mat         = matrix(1:8, 2, 4),
+  vec_logical = c(TRUE, FALSE),
+  summary     = summary(rnorm(1000))
+)
+```
+
+Accessing list items
+
+```{r}
+l$vec_numeric
+l[[3]]
+l[["mat"]]
+```
+
+
+## Loops!
+
+Let's write a `for` loop to take the mean and SD of four samples from a normal distribution
+
+rnorm(n,mean = ?, sd = 1)
+
+```{r}
+list_norm = 
+  list(
+    a = rnorm(20, 5, 4),
+    b = rnorm(20, -12, 3),
+    c = rnorm(20, 17, .4),
+    d = rnorm(20, 100, 1)
+  )
+```
+
+Here's my function
+
+```{r}
+mean_and_sd = function(x) {
+  
+  if (!is.numeric(x)) {
+    stop("Z scores only work for numbers")
+  }
+  
+  if (length(x) < 3) {
+    stop("Z scores really only work if you have three or more numbers")
+  }
+  
+  mean_x = mean(x)
+  sd_x = sd(x)
+  
+  tibble(
+    mean = mean_x,
+    sd = sd_x
+  )
+  
+}
+```
+
+Let's try to make this work.
+- right now I am not saving the results
+- do you really want to repeat each input by copying and pasting?
+```{r}
+mean_and_sd(list_norm[[1]])
+mean_and_sd(list_norm[[2]])
+mean_and_sd(list_norm[[3]])
+mean_and_sd(list_norm[[4]])
+```
+
+Let's a `for` loop instead.
+
+- make it scalable'
+-keep track of input and output
+
+1.define your input (in this case "list_norm")
+2. output should be of vector type = list and length 4 because 4 samples
+3. output is just an empty list
+4. i is a placeholder
+5. notice that if your vector length (m) exceeds the number of loops in 1:n such that m > n, you will have "null" values in your list 
+6. if your n (number of loops) exceeds your input value (length of list_norm) than you will get an error of subscript out of bounds
+7.  FYI you can't pipe into a forloop
+
+```{r}
+output = vector("list", length = 4)
+for (i in 1:4) {
+  
+  output[[i]] = mean_and_sd(list_norm[[i]])
+}
+output
+```
+
+## can we map??
+
+we can map!! (same output)
+- simpler process
+- map for this input list and apply this function
+- no need to define output list in advance
+
+map(input_name, function )
+
+```{r}
+map(list_norm, mean_and_sd)
+
+```
+
+so ... what about other functions?
+
+```{r}
+map(list_norm, summary)
+```
+
+map variants ...
+
+variants, summary ---> you could easily change your function
+will give you a simplified vector of what you were starting out with
+ - each time you are getting a dataframe, you could bind rows 
+ 
+ 
+ you could also define map(list_norm, median) as equal to output to save it FYI 
+ 
+ using dbl and df would help you show #s (changes how they appear) and bind rows respectively
+ 
+
+```{r}
+
+map(list_norm, median)
+map_dbl(list_norm, median)
+map_df(list_norm, median)
+
+output = map_df(list_norm, mean_and_sd)
+
+```
+
+
+## list columns ...
+- only issue with dataframes is that you have to use the same # of elements
+- your list_norm technically has 4 elements!
+- inception time!
+
+```{r}
+listcol_df = 
+  tibble(
+    name = c("a", "b", "c", "d"),
+    norm = list_norm
+  )
+listcol_df[["norm"]]
+output = map(listcol_df[["norm"]], mean_and_sd)
+```
+
+can we add list columns, and then what
+- fyi you could do map_df as well instead of map below
+- map across the normal function that I want to map
+
+```{r}
+listcol_df %>% 
+  mutate(
+    m_sd = map(norm, mean_and_sd)
+  ) %>% 
+  select(-norm)
+```
+
+## What about something more realistic...
+
+- when do you actually want to apply the map function in reality?
+- when does data with this structure actually come into play? 
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728", "USC00519397", "USS0023B17S"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(
+      id, 
+      USW00094728 = "CentralPark_NY", 
+      USC00519397 = "Waikiki_HA",
+      USS0023B17S = "Waterhole_WA"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+you could think about converting each weather station id (n = 3) and collapse them so that all the data is specific to each dataframe
+
+
+let's nest within weather stations...
+- R asks you to name it as data
+- date:tmin are going to be collapsed in the listcol tibble "data"
+
+```{r}
+weather_nest_df = 
+  weather_df %>% 
+  nest(data = date:tmin)
+```
+
+
+Really is a list column!
+- no really go through all
+
+_why not use $ sign?_
+- because i don't want to take out my variable from my df
+- that's how you make mistakes
+
+_why use [[]]_
+So you can troubleshoot -- happens a lot
+lol don't use dollar signs though
+Most folks who write code using tidyverse tools --> they just don't use $ signs
+
+_look into a whileloop: eh nice to know_
+
+```{r}
+weather_nest_df[["data"]]
+```
+
+##WHat if you wanted to do an analysis on your dataframe of dataframe? 
+i.e. mini regression fitting model of tmax on tmin for an input data frame
+
+- if you give me a df, i can do that 
+
+take out the data column (actually a list col) and the first element
+```{r}
+weather_nest_df[["data"]][[1]]
+lm(tmax ~ tmin, data = weather_nest_df[["data"]][[1]])
+lm(tmax ~ tmin, data = weather_nest_df[["data"]][[2]])
+lm(tmax ~ tmin, data = weather_nest_df[["data"]][[3]])
+```
+
+Let's write a short lil ol function that if you give me a dataframe what regression comes out of that dataframe
+
+...and you can map across this list of dataframes the weather_lm function
+
+- given an input list and a function, 
+apply this function to the i to n element of the list
+```{r}
+weather_lm = function(df) {
+  
+  lm(tmax ~ tmin, data = df)
+  
+}
+weather_lm(weather_nest_df[["data"]][[1]])
+
+### more scalable
+map(weather_nest_df[["data"]], weather_lm)
+```
+
+Can i do all this in a tidy way
+ - aka not taking it out of the df 
+ - want to be able to know how this is linked together not to extract it
+ 
+ 1. nested
+ 2. created a function 
+ 3. created a listcol
+ 
+ ..This is a lot of work
+
+```{r}
+weather_nest_df %>% 
+  mutate(
+    model = map(data, weather_lm)
+  )
+```
+
+YUP
+
+
+##unnesting
+get back what you had before ; reverse of nest
+
+```{r}
+weather_nest_df %>% 
+  unnest(data)
+```
+
+## Napoleon!!
+
+
+Here's my scraping function that works for a single page
+
+```{r}
+read_page_reviews = function(url) {
+  
+  dynamite_html = read_html(url)
+  review_titles = 
+    dynamite_html %>%
+    html_nodes(".a-text-bold span") %>%
+    html_text()
+  
+  review_stars = 
+    dynamite_html %>%
+    html_nodes("#cm_cr-review_list .review-rating") %>%
+    html_text() %>%
+    str_extract("^\\d") %>%
+    as.numeric()
+  
+  review_text = 
+    dynamite_html %>%
+    html_nodes(".review-text-content span") %>%
+    html_text() %>% 
+    str_replace_all("\n", "") %>% 
+    str_trim() %>% 
+    str_subset("The media could not be loaded.", negate = TRUE) %>% 
+    str_subset("^$", negate = TRUE)
+  
+  reviews = 
+    tibble(
+      title = review_titles,
+      stars = review_stars,
+      text = review_text
+    )
+  
+  reviews
+  
+}
+```
+
+What we did last time:
+
+```{r}
+base_url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber="
+vec_url = str_c(base_url, c(1, 2, 3, 4, 5))
+dynamite_reviews = 
+  bind_rows(
+    read_page_reviews(vec_url[1]),
+    read_page_reviews(vec_url[2]),
+    read_page_reviews(vec_url[3]),
+    read_page_reviews(vec_url[4]),
+    read_page_reviews(vec_url[5])
+  )
+
+
+###more tidy and eficient
+
+map(vec_url, read_page_reviews)
+
+####now, to make it more efficient and in a df
+###### remember: read_page_reviews = a function you defined and basically generating a dataset --> write a function that takes an input and then maps across a list of inputs and creates an output 
+####### notice that for the final product page_url is functionally same as vec_url
+
+napoleon_reviews = 
+  tibble(
+    page = 1:5, ##this was entered after page_url was tested
+    page_url = str_c(base_url, page)
+  ) %>% 
+  mutate(
+    reviews = map(page_url, read_page_reviews)
+  )
+
+
+###OH: when did he nest it? Technically, everything was already unique so no need to nest? You have a column that is all tibbles ---> expand all the inception-dataframes
+
+napoleon_reviews %>% 
+  select(-page_url) %>% 
+  unnest(reviews)
+```
+
