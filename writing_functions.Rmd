@@ -1,69 +1,407 @@
 ---
-title: "Writing Functions"
+title: "iteration"
 output: github_document
 ---
+
 
 ```{r, echo = FALSE}
 library(tidyverse)
 library(rvest)
-
-knitr::opts_chunk$set(
-  echo = TRUE,
-  warning = FALSE,
-  fig.width = 6,
-  fig.asp = .6,
-  out.width = "90%"
-)
-
-theme_set(theme_minimal() + theme(legend.position = "bottom"))
-
-options(
-  ggplot2.continuous.colour = "viridis",
-  ggplot2.continuous.fill = "viridis"
-)
-
-scale_colour_discrete = scale_colour_viridis_d
-scale_fill_discrete = scale_fill_viridis_d
-
-
 ```
 
+##Z scores
 
-## Z - scores!!
+Let's compute the z - score version of a list of numbers
 
-Let's compute the z score version of a list of numbers. 
- - testing incrementally, mean = 0  and variance = 1
+z score = point estimate - mean of the sample (mu) all over the standard deviation
+
+rnorm is the R function that simulates random variates having a specified normal distribution
 
 ```{r}
 x_vec = rnorm(25, mean = 7, sd = 4)
-
-
-(x_vec - mean(x_vec))/ sd(x_vec)
-```
-
-Suppose you want to do this often.
-
-```{r, eval = FALSE}
-z_scores = function(ARGUMENTS) {
   
-  BODY OF FUNCTION
-}
+
+x_vec - mean(x_vec) / sd(x_vec)
 ```
 
-Here, you are telling function R you have a function X 
-- instead of return you could put z
+*Suppose you want to generate multiple z scores; How to create a function of what I want it to do
+
+
+* inside of the function it is going to look for x and recognize that there is something to do based on that
+
+* syntax
+
+(name of custom function) = function(ARGUMENTS) {
+
+BODY OF FUNCTION 
+
+}
+
+Here you are using a generic x:
+
+- Instead of putting "z" to have it show, you can have it "return(z)"
+- you can save the function itself by labeling it z and that way you can have the return object show as part of your overall function 
+```{r}
+
+z_scores = function(x) {
+  
+  z = (x - mean(x)) / sd(x)
+
+  z
+}
+  
+
+```
+
+you will think it hasnt done anything but now you have created a function called z_scores()
+
+```{r eval = FALSE}
+
+z_scores(x = x_vec)
+
+z_scores(x = 1:10)
+z_scores(x = 3)
+z_scores(x = "my name is jeff")
+```
+
+
+what if i want to make it fancier
+
+- give me an error if I just have a point estimate (not a sample)
+- give me an error if I do not have #s 
+
 ```{r}
 z_scores = function(x) {
- z =  (x - mean(x))/sd(x)
- return(z)
+  
+  if(!is.numeric(x)) {
+    stop("Z scores only work for numbers")
+  }
+  
+  if(length(x) < 3) {
+    stop("Z scores really only work if you have more than 3 numbers")
+  }
 }
 ```
 
-Now you have a z score function
+## Let's have multiple outputs
+
+Let's just get the mean and sd from the vector input
+
+- to make it return both of these objects you have to combine both of these by creating a tibble
+
 
 ```{r}
-z_scores(x = x_vec)
+mean_and_sd = function(x) {
+  
+  if(!is.numeric(x)) {
+    stop("Z scores only work for numbers")
+  }
+  
+  if(length(x) < 3) {
+    stop("Z scores really only work if you have more than 3 numbers")
+  }
+  
+  
+  mean_x = mean(x)
+  sd_x = sd(x)
+  
+  tibble(
+    mean = mean_x,
+    sd = sd_x
+  )
+}
+
+
+
+
 ```
 
 
+Now test
+
+```{r}
+mean_and_sd(x = x_vec)
+mean_and_sd(x = 1:10)
+mean_and_sd(x = rbinom(1000, 1, .5))
+
+```
+
+## How to write simulations/ functions that have multiple inputs & outputs
+
+* specifically  writing simulation
+* making up data when you have data that is made up
+* what if ran this over and over and over --> what is the sample mean and sample sdev
+
+Notice how you can vary the values manually/rerun for the same inputs and each yields diff results because diff sample is pulled 
+
+** important you inserted the mean value and stdard value yourself 
+
+function(ARGUMENTS)
+
+** If I were to rerun below several times, I would get different means and sd as well 
+** to make them closer, you would increase the sample size (and to vary could vary e.g. the mean)
+** below 3 inputs you care about
+
+```{r}
+x_vec = rnorm(n = 2500, mean = 7, sd = 4)
+
+tibble(
+  mean = mean(x_vec),
+  sd = sd(x_vec)
+)
+```
+
+Can I do this using a function? DUH.
+
+- below: writing a function that allows you to manipulate any of the inputs e.g. 
+
+function_name = function(ARGUMENTS) {
+
+ CODE TO DO STUFF
+}
+
+- BELOW x is a vector being created within the function
+
+-  you are creating default values when your x n_obs is running
+
+
+also: 
+
+
+
+```{r}
+
+sim_mean_sd = function(n_obs, true_mean = 7, true_sd = 4) {
+
+x = rnorm(n_obs, mean = true_mean, sd = true_sd)
+
+tibble(
+  mean = mean(x),
+  sd = sd(x)
+)
+
+}
+
+
+```
+ but does it work?
+ 
+```{r}
+sim_mean_sd(n_obs = 25, true_mean = 100, true_sd = 5)
+```
+ 
+Do I have to name all the things i have? 
+
+If you do not name, it will assume that you are putting thigns in order i.e sim_mean_sd(25)  assumes n_obs = 25 b/c first argument in your argument
+
+* if you name assumes same order i.e. true mean = 10, n_obs = 25000, sd = 7,
+
+_Same thing_
+
+```{r}
+sim_mean_sd(25000, 10, 7)
+```
+
+```{r}
+sim_mean_sd(true_mean=10, n_obs = 25000, 7)
+```
+
+
+##Fixing bad stuff:
+
+
+** 1 page of reviews
+** Okay, complete, but how would you scale this up to get 10 pages of reviews or 1000?!
+** without functions, you would simply change 10x - 1000x from &pageNumber = 1 to n
+
+```{r}
+url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=5"
+
+dynamite_html = read_html(url)
+
+review_titles = 
+  dynamite_html %>%
+  html_nodes(".a-text-bold span") %>%
+  html_text()
+
+review_stars = 
+  dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-rating") %>%
+  html_text() %>%
+  str_extract("^\\d") %>%
+  as.numeric()
+
+review_text = 
+  dynamite_html %>%
+  html_nodes(".review-text-content span") %>%
+  html_text() %>% 
+  str_replace_all("\n", "") %>% 
+  str_trim()
+
+reviews = tibble(
+  title = review_titles,
+  stars = review_stars,
+  text = review_text
+)
+```
+
+
+## Let's write a function to get reviews
+
+still form function(ARGUMENT) { DO STUFF}
+
+- negate = true (take it away)
+- negate it there is a space or ^$
+
+```{r}
+read_page_reviews = function(url) {
+  
+  dynamite_html = read_html(url)
+
+review_titles = 
+  dynamite_html %>%
+  html_nodes(".a-text-bold span") %>%
+  html_text()
+
+review_stars = 
+  dynamite_html %>%
+  html_nodes("#cm_cr-review_list .review-rating") %>%
+  html_text() %>%
+  str_extract("^\\d") %>%
+  as.numeric()
+
+review_text = 
+  dynamite_html %>%
+  html_nodes(".review-text-content span") %>%
+  html_text() %>% 
+  str_replace_all("\n", "") %>% 
+  str_trim() %>% 
+  str_subset("The media could not be loaded.", negate = TRUE) %>% 
+  str_subset("^$", negate = TRUE)
+
+reviews = tibble(
+    title = review_titles,
+    stars = review_stars,
+    text = review_text)
+
+reviews 
+
+}
+```
+
+
+## Let's try with a URL 
+
+- now you can vary by a URL link each time and have it read for you
+
+```{r}
+ 
+url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber=3"
+
+read_page_reviews(url)
+```
+
+
+## What good does this do me?
+
+1. Start with base url that is everything but the page number
+
+_office hours: why do we need to skip a certain page again?_
+
+- for me it doesn't work on pg 4 
+- because someone put in an image and the css tag does not work because it is not loadable
+
+```{r}
+base_url = "https://www.amazon.com/product-reviews/B00005JNBQ/ref=cm_cr_arp_d_viewopt_rvwer?ie=UTF8&reviewerType=avp_only_reviews&sortBy=recent&pageNumber="
+```
+
+```{r}
+vec_url = str_c(base_url, c(1,2,3,4, 5))
+
+dynamite_reviews = 
+  bind_rows(
+    read_page_reviews(vec_url[1]),
+    read_page_reviews(vec_url[2]),
+    read_page_reviews(vec_url[3]),
+    read_page_reviews(vec_url[4]),
+    read_page_reviews(vec_url[5])
+  )
+
+```
+
+## Creating a function using LOTR data
+
+
+- Can you write a function that allows you to vary the range, and movie name
+
+```{r eval = FALSE}
+fellowship_ring = readxl::read_excel("./data/LotR_Words.xlsx", range = "B3:D6") %>%
+  mutate(movie = "fellowship_ring")
+
+two_towers = readxl::read_excel("./data/LotR_Words.xlsx", range = "F3:H6") %>%
+  mutate(movie = "two_towers")
+
+return_king = readxl::read_excel("./data/LotR_Words.xlsx", range = "J3:L6") %>%
+  mutate(movie = "return_king")
+
+lotr_tidy = bind_rows(fellowship_ring, two_towers, return_king) %>%
+  janitor::clean_names() %>%
+  gather(key = sex, value = words, female:male) %>%
+  mutate(race = str_to_lower(race)) %>% 
+  select(movie, everything()) 
+```
+
+
+TO 
+
+```{r, eval = FALSE}
+lotr_load_and_tidy = function(path, range, movie_name) {
+  
+  df = readxl::read_excel(path, range = range) %>%
+    janitor::clean_names() %>%
+    gather(key = sex, value = words, female:male) %>%
+    mutate(race = str_to_lower(race),
+           movie = movie_name)
+  
+  df
+  
+}
+
+lotr_tidy = 
+  bind_rows(
+    lotr_load_and_tidy("./data/LotR_Words.xlsx", "B3:D6", "fellowship_ring"),
+    lotr_load_and_tidy("./data/LotR_Words.xlsx", "F3:H6", "two_towers"),
+    lotr_load_and_tidy("./data/LotR_Words.xlsx", "J3:L6", "return_king")) %>%
+  select(movie, everything()) 
+```
+
+
+## Variable Scoping and names
+
+* above, you were working on functions that were created INSIDE a function
+
+_Does this function exist outside? NO IT STAYS INSIDE THE FUNCTION_
+
+Impact: 
+* debugging and writing function quirks
+* have you created the rigth thing
+* _you may have run it in the environment just to check it and oops you accidentally created a function outside of the function technically because you highlighted it_
+* did you make sure you are reusing/recycling the same variable outside of your function 
+* _careful becuase you also may have already created a variable outside of your fucntion and are now calling it in the function -- you are not creating the variable but you are telling R to search for that variable in your R studio instance = SCOPING_
+
+_Why is it better to create an input_
+
+_You can return what you want in the tibble, but don't create a new variable_
+```{r}
+sim_mean_sd = function(n_obs, true_mean = 7, true_sd = 4) {
+
+x_inside__of_function = rnorm(n_obs, true_mean, true_sd)
+
+tibble(
+  mean = mean(x),
+  sd = sd(x)
+)
+
+}
+```
 
