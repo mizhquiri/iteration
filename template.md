@@ -144,4 +144,4 @@ sim_results_df %>%
 ![](template_files/figure-gfm/unnamed-chunk-9-1.png)<!-- --> An
 additional rmd code chunk - very specific to a specific code - if truly
 new –\> will rerun - otherwise will save - r will not keep track of
-overwriting existing variables if they are different
+overwriting existing variables if they are different {r, cache = TRUE}
